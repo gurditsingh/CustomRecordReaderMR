@@ -19,36 +19,16 @@ import org.apache.hadoop.mapreduce.RecordReader;
 import org.apache.hadoop.mapreduce.TaskAttemptContext;
 import org.apache.hadoop.mapreduce.lib.input.FileSplit;
 
-/**
- *
- * FixedLengthRecordReader is returned by FixedLengthInputFormat. This reader
- * uses the record length property set within the FixedLengthInputFormat to
- * read one record at a time from the given InputSplit. This record reader
- * does not support compressed files.
 
-
- *
- * Each call to nextKeyValue() updates the LongWritable KEY and Text VALUE.
-
-
- *
- * KEY = byte position in the file the record started at
-
- * VALUE = the record itself (Text)
- *
- *
- * @author bitsofinfo.g (AT) gmail.com
- *
- */
 public class FixedLengthRecordReader extends RecordReader {
 
-    // reference to the logger
+
     private static final Log LOG = LogFactory.getLog(FixedLengthRecordReader.class);
 
-    // the start point of our split
+
     private long splitStart;
 
-    // the end point in our split
+
     private long splitEnd;
 
     // our current position in the split
@@ -103,50 +83,39 @@ public class FixedLengthRecordReader extends RecordReader {
     public void initialize(InputSplit inputSplit, TaskAttemptContext context)
             throws IOException, InterruptedException {
 
-        // the file input fileSplit
+
         this.fileSplit = (FileSplit)inputSplit;
 
-        // the byte position this fileSplit starts at within the splitEnd file
+
         splitStart = fileSplit.getStart();
 
-        // splitEnd byte marker that the fileSplit ends at within the splitEnd file
         splitEnd = splitStart + fileSplit.getLength();
 
-        // log some debug info
+
         LOG.info("FixedLengthRecordReader: SPLIT START="+splitStart + " SPLIT END=" +splitEnd + " SPLIT LENGTH="+fileSplit.getLength() );
 
-        // the actual file we will be reading from
         Path file = fileSplit.getPath();
 
-        // job configuration
         Configuration job = context.getConfiguration();
 
-        // check to see if compressed....
         CompressionCodec codec = new CompressionCodecFactory(job).getCodec(file);
         if (codec != null) {
             throw new IOException("FixedLengthRecordReader does not support reading compressed files");
         }
 
-        // for updating the total bytes read in
         inputByteCounter = ((MapContext)context).getCounter("FileInputFormatCounters", "BYTES_READ");
 
-        // THE JAR COMPILED AGAINST 0.20.1 does not contain a version of FileInputFormat with these constants (but they exist in trunk)
-        // uncomment the below, then comment or discard the line above
-        //inputByteCounter = ((MapContext)context).getCounter(FileInputFormat.COUNTER_GROUP, FileInputFormat.BYTES_READ);
-
-        // the size of each fixed length record
+      
         this.recordLength = FixedLengthInputFormat.getRecordLength(job);
 
-        // get the filesystem
+
         final FileSystem fs = file.getFileSystem(job);
 
-        // open the File
+
         fileInputStream = fs.open(file,(64 * 1024));
 
-        // seek to the splitStart position
         fileInputStream.seek(splitStart);
 
-        // set our current position
         this.currentPosition = splitStart;
     }
 
@@ -185,20 +154,17 @@ public class FixedLengthRecordReader extends RecordReader {
                 // update our markers
                 totalRead += read;
                 totalToRead -= read;
-                //LOG.info("READ: just read=" + read +" totalRead=" + totalRead + " totalToRead="+totalToRead);
+             
             }
 
-            // update our current position and log the input bytes
+
             currentPosition = currentPosition +recordLength;
             inputByteCounter.increment(recordLength);
 
-            //LOG.info("VALUE=|"+fileInputStream.getPos()+"|"+currentPosition+"|"+splitEnd+"|" + recordLength + "|"+recordValue.toString());
-
-            // return true
+        
             return true;
         }
 
-        // nothing more to read....
         return false;
     }
 
